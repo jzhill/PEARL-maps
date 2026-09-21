@@ -1,0 +1,208 @@
+"""Raw-input loading, cleaning, and the processed datasets the renderers use.
+
+Stage 01 (prepare) calls the ``read_raw_*`` functions, cleans, and writes
+``data/processed``. Every later stage calls :func:`load_processed` and never
+touches the raw CSV / GeoJSON again. The OSM GeoPackage is read in place from
+``data/raw`` because it is already spatially indexed.
+"""
+from __future__ import annotations
+
+import csv
+import json
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+from shapely.geometry import Point, mapping, shape
+from shapely.geometry.base import BaseGeometry
+
+from .config import Config
+from .gpkg import GeoPackage
+
+# An EA whose bounding box spans more than this (degrees, ~11 km) is treated
+# as corrupt. South Tarawa EAs are a few hundred metres across.
+MAX_EA_SPAN_DEG = 0.1
+
+
+# ---------------------------------------------------------------- records
+
+@dataclass(slots=True)
+class EA:
+    id: str
+    village: str
+    island: str
+    geom: BaseGeometry
+    geometry_ok: bool = True
+
+
+@dataclass(slots=True)
+class Household:
+    idx: int                 # row number, stable within one processed file
+    key: str                 # interview__key from the listing
+    ea: str
+    village: str
+    head_name: str           # as listed
+    label: str | None        # cleaned for printing; None = marker only
+    lon: float
+    lat: float
+    occupancy: str
+    dwelling_type: str
+    in_scope: bool           # plotted at all (occupied private household)
+    inside_own_ea: bool | None = None
+
+
+@dataclass
+class Datasets:
+    eas: dict[str, EA]               # geometry_ok EAs only
+    households: list[Household]      # all listed households; filter on in_scope
+    osm: GeoPackage
+
+    def households_in(self, ea_ids) -> list[Household]:
+        s = set(ea_ids)
+        return [h for h in self.households if h.in_scope and h.ea in s]
+
+    def village_eas(self, village: str) -> list[str]:
+        return sorted(e for e, v in self.eas.items() if v.village == village)
+
+
+# ---------------------------------------------------------------- names
+
+_PLACEHOLDER = re.compile(r"##|^\s*(\.a|n/?a|na|none|-)\s*$", re.IGNORECASE)
+
+
+def clean_head_name(raw: str | None, max_chars: int = 30) -> str | None:
+    """Printable household-head label, or None when there is no usable name.
+
+    - placeholders such as ``##N/A##`` and ``.a`` -> None (marker is still drawn)
+    - trailing notes in brackets are dropped
+    - ``Head.Two`` -> ``Head. Two``; whitespace collapsed
+    - longer than ``max_chars`` -> truncated with an ellipsis
+    """
+    s = (raw or "").strip()
+    if not s or _PLACEHOLDER.search(s):
+        return None
+    s = re.sub(r"\s*\(.*$", "", s)
+    s = re.sub(r"\s*\.\s*", ". ", s)
+    s = re.sub(r"\s+", " ", s).strip(" .")
+    if not s:
+        return None
+    if len(s) > max_chars:
+        s = s[: max_chars - 1].rstrip() + "…"
+    return s
+
+
+# ---------------------------------------------------------------- raw inputs
+
+def _in_scope_ea(props: dict, scope: dict) -> bool:
+    if props.get("iid_name") in scope.get("islands", []):
+        return True
+    for ev in scope.get("extra_villages", []) or []:
+        if props.get("iid_name") == ev["island"] and props.get("vid_name") == ev["village"]:
+            return True
+    return False
+
+
+def read_raw_eas(path: Path, scope: dict) -> dict[str, EA]:
+    with open(path, encoding="utf-8") as fh:
+        gj = json.load(fh)
+    out: dict[str, EA] = {}
+    for f in gj["features"]:
+        p = f["properties"]
+        if p.get("ea_2020") is None or not _in_scope_ea(p, scope):
+            continue
+        g = shape(f["geometry"])
+        if not g.is_valid:
+            g = g.buffer(0)
+        minx, miny, maxx, maxy = g.bounds
+        ok = (maxx - minx) < MAX_EA_SPAN_DEG and (maxy - miny) < MAX_EA_SPAN_DEG
+        ea_id = str(int(p["ea_2020"]))
+        out[ea_id] = EA(ea_id, p.get("vid_name") or "", p.get("iid_name") or "", g, ok)
+    return out
+
+
+def read_raw_households(path: Path, hh_cfg: dict) -> list[Household]:
+    occ_ok = set(hh_cfg["occupancy"])
+    dwell_ok = set(hh_cfg["dwelling_type"])
+    max_chars = int(hh_cfg["max_label_chars"])
+    rows: list[Household] = []
+    with open(path, encoding="utf-8-sig") as fh:
+        for r in csv.DictReader(fh):
+            if not r.get("x_final") or not r.get("y_final"):
+                continue
+            rows.append(Household(
+                idx=len(rows),
+                key=r.get("interview__key", ""),
+                ea=r["eaid_corr"].strip(),
+                village=r.get("vid_name", ""),
+                head_name=(r.get("head_string") or "").strip(),
+                label=clean_head_name(r.get("head_string"), max_chars),
+                lon=float(r["x_final"]),
+                lat=float(r["y_final"]),
+                occupancy=r.get("occupancy", ""),
+                dwelling_type=r.get("dwell_type", ""),
+                in_scope=(r.get("occupancy") in occ_ok and r.get("dwell_type") in dwell_ok),
+            ))
+    return rows
+
+
+def flag_inside_own_ea(households: list[Household], eas: dict[str, EA]) -> None:
+    from shapely.prepared import prep
+    prepared = {e: prep(v.geom.buffer(1e-6)) for e, v in eas.items() if v.geometry_ok}
+    for h in households:
+        pg = prepared.get(h.ea)
+        h.inside_own_ea = None if pg is None else pg.contains(Point(h.lon, h.lat))
+
+
+# ---------------------------------------------------------------- processed
+
+HH_FIELDS = ["idx", "hh_key", "ea_id", "village", "head_name", "label", "lon", "lat",
+             "occupancy", "dwelling_type", "in_scope", "inside_own_ea"]
+
+
+def write_processed(cfg: Config, eas: dict[str, EA], households: list[Household]) -> None:
+    cfg.paths.processed.mkdir(parents=True, exist_ok=True)
+    features = [{
+        "type": "Feature",
+        "properties": {"ea_id": e.id, "village": e.village, "island": e.island,
+                       "geometry_ok": e.geometry_ok},
+        "geometry": mapping(e.geom),
+    } for e in sorted(eas.values(), key=lambda x: x.id)]
+    with open(cfg.paths.eas, "w", encoding="utf-8") as fh:
+        json.dump({"type": "FeatureCollection", "features": features}, fh)
+
+    with open(cfg.paths.households, "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(HH_FIELDS)
+        for h in households:
+            w.writerow([h.idx, h.key, h.ea, h.village, h.head_name, h.label or "",
+                        f"{h.lon:.8f}", f"{h.lat:.8f}", h.occupancy, h.dwelling_type,
+                        int(h.in_scope),
+                        "" if h.inside_own_ea is None else int(h.inside_own_ea)])
+
+
+def load_processed(cfg: Config) -> Datasets:
+    for p in (cfg.paths.eas, cfg.paths.households):
+        if not p.exists():
+            raise FileNotFoundError(f"{p} not found - run scripts/01_prepare.py first")
+    with open(cfg.paths.eas, encoding="utf-8") as fh:
+        gj = json.load(fh)
+    eas = {}
+    for f in gj["features"]:
+        p = f["properties"]
+        if not p["geometry_ok"]:
+            continue
+        eas[p["ea_id"]] = EA(p["ea_id"], p["village"], p["island"], shape(f["geometry"]))
+
+    households = []
+    with open(cfg.paths.households, encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            households.append(Household(
+                idx=int(r["idx"]), key=r["hh_key"], ea=r["ea_id"], village=r["village"],
+                head_name=r["head_name"], label=r["label"] or None,
+                lon=float(r["lon"]), lat=float(r["lat"]),
+                occupancy=r["occupancy"], dwelling_type=r["dwelling_type"],
+                in_scope=r["in_scope"] == "1",
+                inside_own_ea=None if r["inside_own_ea"] == "" else r["inside_own_ea"] == "1",
+            ))
+    osm = GeoPackage(cfg.paths.raw_input(cfg, "osm"))
+    return Datasets(eas, households, osm)
