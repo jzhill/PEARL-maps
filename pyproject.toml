@@ -1,0 +1,28 @@
+[project]
+name = "pearl-maps"
+version = "0.1.0"
+description = "Enumeration-area and village orientation maps for PEARL household enumeration in South Tarawa, Kiribati"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.8",
+    "pyyaml>=6.0",
+    "shapely>=2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pypdfium2>=4.0",   # rasterise PDFs for visual QA
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pearl_maps"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

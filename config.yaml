@@ -1,0 +1,51 @@
+# PEARL-maps pipeline configuration.
+# Paths are relative to the repository root.
+
+paths:
+  raw: data/raw                 # inputs you copy in by hand (gitignored)
+  processed: data/processed     # written by 01_prepare and 02_plan (gitignored)
+  outputs: outputs              # rendered PDFs and build logs (gitignored)
+  status: config/ea_status.csv  # which EAs are mapped / pending / blocked (tracked)
+
+# File names expected inside paths.raw. Update these when a new extract arrives.
+inputs:
+  ea_boundaries: KIR_EA_Census2020FINAL.geojson
+  households: hhlisting23_pearl_request_2025_08.csv
+  osm: kiribati_curated_osm_sprep.gpkg
+
+# Printed in the footer of every map.
+sources:
+  ea_boundaries: "2020 census"
+  households: "PEARL listing (Aug 2025 extract)"
+  basemap: "OpenStreetMap"
+
+# Which enumeration areas the pipeline works on.
+scope:
+  islands: ["South Tarawa"]
+  extra_villages:               # villages outside those islands to include
+    - { island: "North Tarawa", village: "Buota" }
+
+# Which household records are plotted and named.
+households:
+  occupancy: ["Occupied"]
+  dwelling_type: ["Private Household"]
+  max_label_chars: 30           # longer head names are truncated with an ellipsis
+
+# EA enumeration maps (03_render_ea_maps).
+ea_map:
+  style: bw                     # bw = greyscale for laser print; osm = faded OSM colours
+  fonts: ["Arial", "Liberation Sans", "DejaVu Sans"]   # first one installed is used
+  label_sizes_pt: [10.0, 9.5, 9.0, 8.5, 8.0]           # tried in order until every name fits
+  neighbour_size_step_pt: 1.0   # neighbouring-EA names are this much smaller, in grey
+  neighbour_halo_mm: 20.0       # only neighbours this close to the EA boundary are named
+  max_displacement_mm: 28.0     # furthest a focus-EA name may sit from its marker
+  max_parts: 4                  # most pages one EA may be split across
+  split_overlap_m: 25.0         # ground overlap between split pages
+  north_up_preference: 1.18     # a rotated layout must gain this much scale to win outright
+  landmarks: 8                  # landmarks labelled per page
+
+# Village orientation sheets (04_render_village_maps).
+village_map:
+  max_panels: 3                 # stacked west-to-east strips on one A4 landscape sheet
+  landmarks_per_panel: 26
+  show_households: true
