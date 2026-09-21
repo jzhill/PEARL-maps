@@ -1,0 +1,28 @@
+# ---- data: never commit household names or source datasets --------------
+# Raw inputs (census EAs, PEARL household listing, OSM extract)
+data/raw/*
+!data/raw/README.md
+
+# Intermediate files written by 01_prepare and 02_plan
+data/processed/*
+!data/processed/.gitkeep
+
+# Rendered maps and build logs
+outputs/*
+!outputs/.gitkeep
+
+# ---- python -----------------------------------------------------------------
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# ---- editors / OS -----------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
