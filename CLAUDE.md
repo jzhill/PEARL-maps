@@ -55,6 +55,9 @@ uv run python scripts/sync_status.py --maps-dir PATH [--dry-run]
 - `ea_map.py` — `EAMapRenderer.render()` tries layouts, steps font sizes,
   then splits (`split_bands`) if needed. `_render_page()` draws one page.
 - `village_map.py` — stacked strip panels for long villages.
+- `landmarks.py` — landmark record and per-page selection. The list comes from
+  `data/raw/landmarks.csv` (hand-edited) via stage 01 -> `landmarks.geojson`;
+  the renderers never read the CSV or the OSM amenity layers for landmarks.
 - `gpkg.py` — reads the OSM GeoPackage directly via SQLite R-tree queries.
 
 ## Checking your work

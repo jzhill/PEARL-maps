@@ -51,7 +51,7 @@ rerun on its own.
 
 | stage | reads | writes |
 |---|---|---|
-| `01_prepare.py` | `data/raw/*` | `data/processed/eas.geojson`, `households.csv`, `qa_report.md`, `qa_issues.csv` |
+| `01_prepare.py` | `data/raw/*` | `data/processed/eas.geojson`, `households.csv`, `landmarks.geojson`, `qa_report.md`, `qa_issues.csv` |
 | `02_plan.py` | processed data, `config/ea_status.csv` | `data/processed/plan.csv` |
 | `03_render_ea_maps.py` | processed data, plan, OSM GeoPackage | `outputs/ea_maps/<village>/*.pdf`, `_build_log.csv` |
 | `04_render_village_maps.py` | processed data, plan, OSM GeoPackage | `outputs/village_maps/*.pdf`, `_build_log.csv` |
@@ -154,8 +154,9 @@ They are implemented in `src/pearl_maps/ea_map.py` and tuned in `config.yaml`.
   grey, so teams can tell which side of the line a house is on. Neighbours
   further than `neighbour_halo_mm` from the boundary are shown as markers only.
 - The EA boundary is heavy dashed; neighbouring boundaries lighter, each
-  labelled with its EA number. Up to eight landmarks (schools, churches and
-  maneaba, health and government buildings, shops) are starred and named.
+  labelled with its EA number. Up to eight landmarks (schools, clinics,
+  churches, maneabas and government offices) are starred and named. They come
+  from `data/raw/landmarks.csv`; see "Landmarks" below.
 
 **Village orientation sheets**
 
@@ -165,6 +166,32 @@ They are implemented in `src/pearl_maps/ea_map.py` and tuned in `config.yaml`.
   (the footer states the prefix), because full eight-digit numbers do not fit
   inside small EAs at village scale.
 - Households appear as dots for density only; no names.
+
+---
+
+## Landmarks
+
+Both map types star and name the well-known orientation features listed in
+`data/raw/landmarks.csv` (South Tarawa and Buota: schools, clinics and hospitals,
+churches, maneabas, ministries and other government offices). Edit that file by
+hand, then rerun `01_prepare.py`; stage 01 checks it and stops with the line
+numbers of any bad row. It also writes `data/processed/landmarks.geojson`,
+which opens directly in QGIS.
+
+| column | meaning |
+|---|---|
+| `landmark_id`, `name`, `alt_name` | identifier, full name, other names in use |
+| `label` | short text printed on the maps (e.g. `MFED`); falls back to `name` if blank |
+| `category` | `school`, `health`, `church`, `maneaba`, `gov` or `community` |
+| `lon`, `lat` | WGS 84 decimal degrees |
+| `confidence` | `high`, `medium` or `check` |
+| `village`, `subtype`, `code`, `source`, `source_id`, `notes` | provenance, for reference only |
+
+`landmarks.min_confidence` in `config.yaml` sets which rows may print (default
+`medium`, so `check` rows stay off the maps), and `landmarks.priority` sets which
+categories win when a page has more landmarks than it can label. Names longer
+than 42 characters (40 on village sheets) are skipped, so give long names a
+short `label`.
 
 ---
 
@@ -186,8 +213,8 @@ src/pearl_maps/
     geometry.py             local projection, page transform, splitting
     layout.py               page sizes, orientation and rotation choice
     labels.py               fonts, text metrics, label placement
-    landmarks.py            landmark selection from OSM
-    style.py                colours, road classes, landmark categories
+    landmarks.py            landmark record and per-page selection
+    style.py                colours and road classes
     draw.py                 basemap and map furniture
     ea_map.py               EA enumeration maps
     village_map.py          village orientation sheets
