@@ -86,10 +86,19 @@ def test_load_min_confidence_check_keeps_everything(tmp_path):
     assert [lm.name for lm in load_landmarks(cfg)] == ["Doubtful Church"]
 
 
-def test_collect_filters_bbox_repeats_and_long_names():
+def test_collect_filters_bbox_and_long_names():
     def lm(name, x, y):
         return Landmark(name, "school", Point(x, y), 0, "high")
-    lms = [lm("Inside", 173.10, 1.36), lm("Outside", 173.50, 1.36), lm("inside", 173.11, 1.36),
+    lms = [lm("Inside", 173.10, 1.36), lm("Outside", 173.50, 1.36),
            lm("A" * 43, 173.10, 1.36), lm("Also Inside", 173.12, 1.37)]
     got = collect_landmarks(lms, (173.0, 1.3, 173.2, 1.4))
     assert [g.name for g in got] == ["Inside", "Also Inside"]
+
+
+def test_collect_keeps_same_name_at_different_places_but_drops_duplicate_rows():
+    def lm(name, x, y):
+        return Landmark(name, "business", Point(x, y), 3, "medium")
+    lms = [lm("Example Shop", 173.100, 1.360), lm("example shop", 173.10005, 1.36005),   # ~7 m: same place
+           lm("Example Shop", 173.110, 1.360)]                                            # ~1 km: another branch
+    got = collect_landmarks(lms, (173.0, 1.3, 173.2, 1.4))
+    assert [(g.point.x) for g in got] == [173.100, 173.110]
