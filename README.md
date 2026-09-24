@@ -155,7 +155,8 @@ They are implemented in `src/pearl_maps/ea_map.py` and tuned in `config.yaml`.
   further than `neighbour_halo_mm` from the boundary are shown as markers only.
 - The EA boundary is heavy dashed; neighbouring boundaries lighter, each
   labelled with its EA number. Up to eight landmarks (schools, clinics,
-  churches, maneabas and government offices) are starred and named. They come
+  churches, maneabas, government offices and a few chosen businesses) are
+  starred and named. They come
   from `data/raw/landmarks.csv`; see "Landmarks" below.
 
 **Village orientation sheets**
@@ -173,7 +174,8 @@ They are implemented in `src/pearl_maps/ea_map.py` and tuned in `config.yaml`.
 
 Both map types star and name the well-known orientation features listed in
 `data/raw/landmarks.csv` (South Tarawa and Buota: schools, clinics and hospitals,
-churches, maneabas, ministries and other government offices). Edit that file by
+churches, maneabas, ministries and other government offices, and a hand-picked
+short list of well-known private businesses). Edit that file by
 hand, then rerun `01_prepare.py`; stage 01 checks it and stops with the line
 numbers of any bad row. It also writes `data/processed/landmarks.geojson`,
 which opens directly in QGIS.
@@ -182,7 +184,7 @@ which opens directly in QGIS.
 |---|---|
 | `landmark_id`, `name`, `alt_name` | identifier, full name, other names in use |
 | `label` | short text printed on the maps (e.g. `MFED`); falls back to `name` if blank |
-| `category` | `school`, `health`, `church`, `maneaba`, `gov` or `community` |
+| `category` | `school`, `health`, `church`, `maneaba`, `gov`, `business` or `community` |
 | `lon`, `lat` | WGS 84 decimal degrees |
 | `confidence` | `high`, `medium` or `check` |
 | `village`, `subtype`, `code`, `source`, `source_id`, `notes` | provenance, for reference only |

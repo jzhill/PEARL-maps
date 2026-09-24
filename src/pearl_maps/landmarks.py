@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from shapely.geometry import Point
 
 # categories the renderers know about (the `category` column of landmarks.csv)
-CATEGORIES = ("school", "health", "church", "maneaba", "gov", "community")
+CATEGORIES = ("school", "health", "church", "maneaba", "gov", "business", "community")
 # lowest to highest; `min_confidence` in config.yaml keeps rows at or above one
 CONFIDENCE_LEVELS = ("check", "medium", "high")
 
@@ -19,7 +19,7 @@ CONFIDENCE_LEVELS = ("check", "medium", "high")
 @dataclass(frozen=True)
 class Landmark:
     name: str          # text printed on the map (the file's `label`)
-    category: str      # school | health | church | maneaba | gov | community
+    category: str      # school | health | church | maneaba | gov | business | community
     point: Point       # lon/lat
     priority: int      # lower prints first (config.yaml landmarks.priority)
     confidence: str    # check | medium | high

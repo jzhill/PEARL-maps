@@ -41,6 +41,7 @@ landmarks:
     church: 1
     maneaba: 1
     gov: 2
+    business: 3
     community: 3
 
 # EA enumeration maps (03_render_ea_maps).

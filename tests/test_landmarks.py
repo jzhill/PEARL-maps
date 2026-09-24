@@ -32,9 +32,10 @@ def make_cfg(tmp_path, min_confidence="medium"):
 
 def test_read_accepts_valid_rows(tmp_path):
     p = tmp_path / "landmarks.csv"
-    write_csv(p, [row(1, "Example Primary School"), row(2, "Example Church", "church", "medium")])
+    write_csv(p, [row(1, "Example Primary School"), row(2, "Example Church", "church", "medium"),
+                  row(3, "Example Supermarket", "business", "medium")])
     rows = read_raw_landmarks(p)
-    assert [r["name"] for r in rows] == ["Example Primary School", "Example Church"]
+    assert [r["name"] for r in rows] == ["Example Primary School", "Example Church", "Example Supermarket"]
     assert rows[0]["lon"] == 173.1 and rows[0]["lat"] == 1.36
 
 
