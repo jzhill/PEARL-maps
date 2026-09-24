@@ -10,7 +10,7 @@ from __future__ import annotations
 import csv
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from shapely.geometry import Point, mapping, shape
@@ -18,6 +18,7 @@ from shapely.geometry.base import BaseGeometry
 
 from .config import Config
 from .gpkg import GeoPackage
+from .landmarks import CATEGORIES, CONFIDENCE_LEVELS, Landmark
 
 # An EA whose bounding box spans more than this (degrees, ~11 km) is treated
 # as corrupt. South Tarawa EAs are a few hundred metres across.
@@ -56,6 +57,7 @@ class Datasets:
     eas: dict[str, EA]               # geometry_ok EAs only
     households: list[Household]      # all listed households; filter on in_scope
     osm: GeoPackage
+    landmarks: list[Landmark] = field(default_factory=list)   # printable ones, best first
 
     def households_in(self, ea_ids) -> list[Household]:
         s = set(ea_ids)
@@ -145,6 +147,49 @@ def read_raw_households(path: Path, hh_cfg: dict) -> list[Household]:
     return rows
 
 
+LANDMARK_REQUIRED = ("landmark_id", "name", "category", "lon", "lat", "confidence")
+
+
+def read_raw_landmarks(path: Path) -> list[dict]:
+    """Rows of landmarks.csv as dicts, validated. Raises ValueError listing every bad row.
+
+    The file is edited by hand, so a typo in `category` or `confidence` must stop
+    stage 01 rather than silently drop a landmark from the maps.
+    """
+    rows: list[dict] = []
+    problems: list[str] = []
+    with open(path, encoding="utf-8-sig") as fh:
+        reader = csv.DictReader(fh)
+        missing = [c for c in LANDMARK_REQUIRED if c not in (reader.fieldnames or [])]
+        if missing:
+            raise ValueError(f"{path.name}: missing column(s) {missing}")
+        seen: set[str] = set()
+        for n, r in enumerate(reader, start=2):          # line 1 is the header
+            where = f"{path.name} line {n} ({r.get('name', '')!r})"
+            try:
+                r["lon"], r["lat"] = float(r["lon"]), float(r["lat"])
+            except ValueError:
+                problems.append(f"{where}: lon/lat is not a number")
+                continue
+            if not (172.0 <= r["lon"] <= 174.0 and 0.5 <= r["lat"] <= 2.5):
+                problems.append(f"{where}: lon/lat {r['lon']}, {r['lat']} is not near Tarawa "
+                                "(are they swapped?)")
+            if r["category"] not in CATEGORIES:
+                problems.append(f"{where}: category {r['category']!r} is not one of {list(CATEGORIES)}")
+            if r["confidence"] not in CONFIDENCE_LEVELS:
+                problems.append(f"{where}: confidence {r['confidence']!r} is not one of "
+                                f"{list(CONFIDENCE_LEVELS)}")
+            if not (r.get("label") or r["name"]).strip():
+                problems.append(f"{where}: no name or label")
+            if r["landmark_id"] in seen:
+                problems.append(f"{where}: duplicate landmark_id {r['landmark_id']}")
+            seen.add(r["landmark_id"])
+            rows.append(r)
+    if problems:
+        raise ValueError("landmarks file has problems:\n  " + "\n  ".join(problems))
+    return rows
+
+
 def flag_inside_own_ea(households: list[Household], eas: dict[str, EA]) -> None:
     from shapely.prepared import prep
     prepared = {e: prep(v.geom.buffer(1e-6)) for e, v in eas.items() if v.geometry_ok}
@@ -180,8 +225,42 @@ def write_processed(cfg: Config, eas: dict[str, EA], households: list[Household]
                         "" if h.inside_own_ea is None else int(h.inside_own_ea)])
 
 
+LANDMARK_PROPS = ("landmark_id", "name", "label", "alt_name", "category", "subtype", "village",
+                  "confidence", "code", "source", "notes")
+
+
+def write_landmarks(cfg: Config, rows: list[dict]) -> None:
+    """data/processed/landmarks.geojson: every row of landmarks.csv (filtering happens at load)."""
+    cfg.paths.processed.mkdir(parents=True, exist_ok=True)
+    features = [{
+        "type": "Feature",
+        "properties": {k: (r.get(k) or "") for k in LANDMARK_PROPS},
+        "geometry": mapping(Point(r["lon"], r["lat"])),
+    } for r in rows]
+    with open(cfg.paths.landmarks, "w", encoding="utf-8") as fh:
+        json.dump({"type": "FeatureCollection", "features": features}, fh, ensure_ascii=False)
+
+
+def load_landmarks(cfg: Config) -> list[Landmark]:
+    """Printable landmarks, best first: config priority, then confidence, then label."""
+    with open(cfg.paths.landmarks, encoding="utf-8") as fh:
+        gj = json.load(fh)
+    floor = CONFIDENCE_LEVELS.index(cfg.landmarks["min_confidence"])
+    prio = cfg.landmarks["priority"]
+    out = []
+    for f in gj["features"]:
+        p = f["properties"]
+        if CONFIDENCE_LEVELS.index(p["confidence"]) < floor:
+            continue
+        out.append(Landmark(name=(p["label"] or p["name"]).strip(), category=p["category"],
+                            point=shape(f["geometry"]), priority=int(prio.get(p["category"], 9)),
+                            confidence=p["confidence"]))
+    out.sort(key=lambda lm: (lm.priority, -CONFIDENCE_LEVELS.index(lm.confidence), lm.name.lower()))
+    return out
+
+
 def load_processed(cfg: Config) -> Datasets:
-    for p in (cfg.paths.eas, cfg.paths.households):
+    for p in (cfg.paths.eas, cfg.paths.households, cfg.paths.landmarks):
         if not p.exists():
             raise FileNotFoundError(f"{p} not found - run scripts/01_prepare.py first")
     with open(cfg.paths.eas, encoding="utf-8") as fh:
@@ -205,4 +284,4 @@ def load_processed(cfg: Config) -> Datasets:
                 inside_own_ea=None if r["inside_own_ea"] == "" else r["inside_own_ea"] == "1",
             ))
     osm = GeoPackage(cfg.paths.raw_input(cfg, "osm"))
-    return Datasets(eas, households, osm)
+    return Datasets(eas, households, osm, load_landmarks(cfg))

@@ -57,26 +57,3 @@ ROAD_MIN_MM = {"main": 1.9, "sec": 1.25, "minor": 0.7, "track": 0.35}
 ROAD_FILL_KEY = {"main": "road_main", "sec": "road_sec", "minor": "road_minor", "track": "track"}
 ROAD_EDGE_KEY = {"main": "road_main_edge", "sec": "road_sec_edge",
                  "minor": "road_minor_edge", "track": "track"}
-
-# ---------------------------------------------------------------- landmarks
-
-# OSM amenity -> landmark category (None = never a landmark)
-LANDMARK_AMENITY = {
-    "school": "school", "kindergarten": "school", "college": "school",
-    "university": "school",
-    "place_of_worship": "church",
-    "clinic": "health", "hospital": "health", "doctors": "health", "pharmacy": "health",
-    "townhall": "gov", "public_building": "gov", "courthouse": "gov", "police": "gov",
-    "post_office": "gov", "community_centre": "gov", "ferry_terminal": "gov",
-    "marketplace": "shop", "fuel": "shop", "bank": "shop",
-}
-LANDMARK_SHOPS = {"supermarket", "general", "variety_store", "convenience", "car_repair",
-                  "hardware", "bakery", "seafood", "department_store"}
-# a named building counts as a landmark if its name contains one of these
-LANDMARK_NAME_WORDS = ("school", "church", "maneaba", "clinic", "hospital", "dispensary",
-                       "ministry", "council", "office", "station", "college", "store",
-                       "market", "shop")
-LANDMARK_PRIORITY = {"school": 0, "health": 0, "church": 1, "gov": 2, "shop": 3, "named": 4}
-# names in the OSM data that are not features on the ground
-LANDMARK_JUNK = {"north tarawa", "south tarawa", "tarawa", "kiribati",
-                 "north tarawa - south tarawa"}

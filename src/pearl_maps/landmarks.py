@@ -1,50 +1,44 @@
-"""Named orientation features from the OSM GeoPackage, best first."""
+"""Orientation landmarks from the curated reference file, best first.
+
+The file is data/raw/landmarks.csv (edited by hand). Stage 01 validates it and
+writes data/processed/landmarks.geojson; ``load_processed`` turns that into the
+list the renderers pass to :func:`collect_landmarks`.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from shapely.geometry import Point
 
-from .style import (LANDMARK_AMENITY, LANDMARK_JUNK, LANDMARK_NAME_WORDS,
-                    LANDMARK_PRIORITY, LANDMARK_SHOPS)
+# categories the renderers know about (the `category` column of landmarks.csv)
+CATEGORIES = ("school", "health", "church", "maneaba", "gov", "community")
+# lowest to highest; `min_confidence` in config.yaml keeps rows at or above one
+CONFIDENCE_LEVELS = ("check", "medium", "high")
 
 
 @dataclass(frozen=True)
 class Landmark:
-    name: str
-    category: str      # school | health | church | gov | shop | named
+    name: str          # text printed on the map (the file's `label`)
+    category: str      # school | health | church | maneaba | gov | community
     point: Point       # lon/lat
-
-    @property
-    def priority(self) -> int:
-        return LANDMARK_PRIORITY.get(self.category, 5)
+    priority: int      # lower prints first (config.yaml landmarks.priority)
+    confidence: str    # check | medium | high
 
 
-def collect_landmarks(osm, bbox, max_name_len: int = 42) -> list[Landmark]:
-    found: list[Landmark] = []
-    for g, a in osm.query("amenity", bbox, ("amenity", "name")):
-        cat = LANDMARK_AMENITY.get(a["amenity"])
-        if cat and a["name"]:
-            found.append(Landmark(a["name"].strip(), cat, g.centroid))
-    for g, a in osm.query("shop", bbox, ("shop", "name")):
-        if a["name"] and a["shop"] in LANDMARK_SHOPS:
-            found.append(Landmark(a["name"].strip(), "shop", g.centroid))
-    for g, a in osm.query("buildings", bbox, ("name", "amenity")):
-        if not a["name"]:
-            continue
-        name = a["name"].strip()
-        cat = LANDMARK_AMENITY.get(a["amenity"] or "")
-        if cat is None:
-            if not any(w in name.lower() for w in LANDMARK_NAME_WORDS):
-                continue
-            cat = "named"
-        found.append(Landmark(name, cat, g.centroid))
+def collect_landmarks(landmarks: list[Landmark], bbox, max_name_len: int = 42) -> list[Landmark]:
+    """Landmarks inside ``bbox`` (minx, miny, maxx, maxy in lon/lat), best first.
 
+    ``landmarks`` is already ordered best-first by ``load_processed``. A name is
+    used once per call, and names too long to print are skipped.
+    """
+    minx, miny, maxx, maxy = bbox
     seen: set[str] = set()
     out: list[Landmark] = []
-    for lm in sorted(found, key=lambda l: l.priority):
+    for lm in landmarks:
+        if not (minx <= lm.point.x <= maxx and miny <= lm.point.y <= maxy):
+            continue
         k = lm.name.lower()
-        if k in seen or k in LANDMARK_JUNK or len(lm.name) > max_name_len:
+        if k in seen or len(lm.name) > max_name_len:
             continue
         seen.add(k)
         out.append(lm)

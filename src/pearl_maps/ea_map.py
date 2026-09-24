@@ -345,7 +345,7 @@ class EAMapRenderer:
         fw, fh = frame
         size = 8.0
         chosen = []
-        for lm in collect_landmarks(self.ds.osm, T.lonlat_bbox()):
+        for lm in collect_landmarks(self.ds.landmarks, T.lonlat_bbox()):
             x, y = T.point(lm.point.x, lm.point.y)
             if 2 <= x <= fw - 2 and 2 <= y <= fh - 2:
                 chosen.append((lm, x, y))

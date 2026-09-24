@@ -12,6 +12,7 @@ inputs:
   ea_boundaries: KIR_EA_Census2020FINAL.geojson
   households: hhlisting23_pearl_request_2025_08.csv
   osm: kiribati_curated_osm_sprep.gpkg
+  landmarks: landmarks.csv      # curated orientation landmarks; edit by hand, then re-run 01_prepare
 
 # Printed in the footer of every map.
 sources:
@@ -30,6 +31,17 @@ households:
   occupancy: ["Occupied"]
   dwelling_type: ["Private Household"]
   max_label_chars: 30           # longer head names are truncated with an ellipsis
+
+# Which landmarks (from landmarks.csv) may be printed, and in what order.
+landmarks:
+  min_confidence: medium        # check | medium | high - rows below this are never printed
+  priority:                     # lower prints first when a page has more than it can label
+    school: 0
+    health: 0
+    church: 1
+    maneaba: 1
+    gov: 2
+    community: 3
 
 # EA enumeration maps (03_render_ea_maps).
 ea_map:

@@ -187,7 +187,7 @@ class VillageMapRenderer:
 
         # landmarks
         chosen = []
-        for lm in collect_landmarks(self.ds.osm, T.lonlat_bbox(0.0008), max_name_len=40):
+        for lm in collect_landmarks(self.ds.landmarks, T.lonlat_bbox(0.0008), max_name_len=40):
             x, y = T.point(lm.point.x, lm.point.y)
             if 2 <= x <= fw - 2 and 2 <= y <= fh - 2:
                 chosen.append((lm, x, y))

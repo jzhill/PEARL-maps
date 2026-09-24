@@ -41,6 +41,10 @@ class Paths:
         return self.processed / "qa_issues.csv"
 
     @property
+    def landmarks(self) -> Path:
+        return self.processed / "landmarks.geojson"
+
+    @property
     def plan(self) -> Path:
         return self.processed / "plan.csv"
 
@@ -61,6 +65,7 @@ class Config:
     sources: dict
     scope: dict
     households: dict
+    landmarks: dict
     ea_map: dict
     village_map: dict
 
@@ -84,6 +89,7 @@ def load_config(path: Path | str | None = None) -> Config:
         sources=raw["sources"],
         scope=raw["scope"],
         households=raw["households"],
+        landmarks=raw["landmarks"],
         ea_map=raw["ea_map"],
         village_map=raw["village_map"],
     )
