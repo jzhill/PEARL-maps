@@ -53,7 +53,7 @@ ea_map:
   neighbour_size_step_pt: 1.0   # neighbouring-EA names are this much smaller, in grey
   neighbour_halo_mm: 20.0       # only neighbours this close to the EA boundary are named
   max_displacement_mm: 28.0     # furthest a focus-EA name may sit from its marker
-  max_parts: 4                  # most pages one EA may be split across
+  max_parts: 6                  # most pages one EA may be split across (the splitter stops at the first split where every name fits)
   split_overlap_m: 25.0         # ground overlap between split pages
   north_up_preference: 1.18     # a rotated layout must gain this much scale to win outright
   landmarks: 8                  # landmarks labelled per page
