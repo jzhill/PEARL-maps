@@ -15,7 +15,8 @@ import matplotlib
 matplotlib.use("pdf")
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-from shapely.geometry import box
+from shapely.geometry import Polygon, box
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from .config import Config
@@ -33,6 +34,23 @@ MM = 1 / 25.4
 PANEL_GAP_MM = 6.0
 LEGEND_BAND_MM = 34.0
 PAD_M = 30.0
+
+# Locator inset in the bottom band, between the statistics text (left) and the
+# north arrow / scale bar (right): South Tarawa and Buota, true north up.
+LOCATOR_X_MM = 100.0                       # from the left edge of the frame
+LOCATOR_W_MM, LOCATOR_H_MM = 40.0, 20.0
+LOCATOR_LON = (172.895, 173.205)
+LOCATOR_LAT_MIN = 1.305                    # top follows from the 2:1 shape
+LOCATOR_MIN_BOX_DEG = 0.012                # ~1.3 km, so a tiny village still shows as a box
+
+
+def inflate_to_min(poly: BaseGeometry, min_deg: float) -> BaseGeometry:
+    """Grow ``poly`` (lon/lat) about its centre until its longer side is ``min_deg``."""
+    minx, miny, maxx, maxy = poly.bounds
+    longest = max(maxx - minx, maxy - miny)
+    if longest >= min_deg:
+        return poly
+    return poly.buffer((min_deg - longest) / 2, join_style=2)
 
 
 @dataclass
@@ -111,6 +129,12 @@ class VillageMapRenderer:
         band_top = top - n * ph - (n - 1) * PANEL_GAP_MM - 2.0
         self._legend_band(fig, page, band_top, village, prefix, len(ea_ids), n_hh, n,
                           mm_per_m, proj.deg, fw)
+        # ground covered by the panels: the full west-east span, one panel's height
+        half_h = ph / mm_per_m / 2
+        covered = Polygon([proj.inv(x, y) for x, y in (
+            (minx - PAD_M, cy - half_h), (maxx + PAD_M, cy - half_h),
+            (maxx + PAD_M, cy + half_h), (minx - PAD_M, cy + half_h))])
+        self._locator(fig, page, covered)
         fig.savefig(out_pdf)
         plt.close(fig)
         return VillageResult(out_pdf, village, len(ea_ids), n_ea, n_lm, n_hh, n,
@@ -226,6 +250,34 @@ class VillageMapRenderer:
                                   lw=0.4, alpha=0.95))
                 n_ea += 1
         return n_ea, n_lm
+
+    # ------------------------------------------------------------ locator inset
+
+    def _locator(self, fig, page, covered: BaseGeometry) -> None:
+        """Small map of South Tarawa with a box around the ground this sheet covers."""
+        lat_max = LOCATOR_LAT_MIN + (LOCATOR_LON[1] - LOCATOR_LON[0]) * LOCATOR_H_MM / LOCATOR_W_MM
+        x0 = MARGIN["left"] + LOCATOR_X_MM
+        y0 = MARGIN["bottom"] + 4.5
+        ax = fig.add_axes([x0 / page[0], y0 / page[1], LOCATOR_W_MM / page[0], LOCATOR_H_MM / page[1]])
+        ax.set_xlim(*LOCATOR_LON)
+        ax.set_ylim(LOCATOR_LAT_MIN, lat_max)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for s in ax.spines.values():
+            s.set_linewidth(0.5)
+            s.set_color("#555555")
+        for g, _ in self.ds.osm.query("land", (LOCATOR_LON[0], LOCATOR_LAT_MIN, LOCATOR_LON[1], lat_max)):
+            for p in getattr(g, "geoms", [g]):
+                if p.geom_type != "Polygon":
+                    continue
+                x, y = p.simplify(0.0004).exterior.xy
+                # edge in the fill colour so islets narrower than a pen line still show
+                ax.fill(x, y, fc="#8c8c8c", ec="#8c8c8c", lw=0.5)
+        x, y = inflate_to_min(covered, LOCATOR_MIN_BOX_DEG).exterior.xy
+        ax.plot(x, y, color="white", lw=2.4, solid_joinstyle="miter")
+        ax.plot(x, y, color="black", lw=0.9, solid_joinstyle="miter")
+        ax.text(LOCATOR_LON[0] + 0.004, lat_max - 0.004, "South Tarawa", ha="left", va="top",
+                fontsize=5.0, fontfamily=font_family(), color="#333333")
 
     # ------------------------------------------------------------ legend band
 

@@ -168,6 +168,9 @@ They are implemented in `src/pearl_maps/ea_map.py` and tuned in `config.yaml`.
 - EA numbers are printed inside each EA without the shared leading digits
   (the footer states the prefix), because full eight-digit numbers do not fit
   inside small EAs at village scale.
+- A small locator map of South Tarawa and Buota sits in the bottom band, with a
+  box around the ground the sheet covers (true north up; a very small village is
+  drawn as a minimum-size box so it can still be seen).
 - Households appear as dots for density only; no names.
 
 ---
