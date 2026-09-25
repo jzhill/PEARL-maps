@@ -11,6 +11,11 @@ data/processed/*
 outputs/*
 !outputs/.gitkeep
 
+# ---- safety net: the household listing or rendered maps (which carry household
+# names) saved outside the folders above. Force-add (git add -f) a genuine PDF.
+hhlisting*
+*.pdf
+
 # ---- EA status register: your own record of which EAs are mapped (kept local) --
 # Start from config/ea_status.example.csv.
 config/ea_status.csv
