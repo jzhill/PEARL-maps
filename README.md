@@ -113,8 +113,9 @@ uv run python scripts/04_render_village_maps.py --only Temaiku
 
 ### The status register
 
-`config/ea_status.csv` is tracked in git and is the single record of which
-EAs have maps:
+`config/ea_status.csv` is the single record of which EAs have maps. It is your
+own working record, so it is in `.gitignore` and is not pushed. Start from
+`config/ea_status.example.csv`, or run `sync_status.py`, which builds it:
 
 ```
 ea_id,village,status,map_date,note
@@ -209,7 +210,8 @@ short `label`.
 
 ```
 config.yaml                 all settings: input file names, scope, map rules
-config/ea_status.csv        which EAs are mapped / pending / blocked (tracked)
+config/ea_status.csv        which EAs are mapped / pending / blocked (local, gitignored)
+config/ea_status.example.csv  a template for that file (tracked)
 data/raw/                   source files, copied in by hand (gitignored)
 data/processed/             written by stages 01-02 (gitignored)
 outputs/                    rendered PDFs and build logs (gitignored)

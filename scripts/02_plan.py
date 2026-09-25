@@ -34,6 +34,11 @@ def main() -> int:
     args = ap.parse_args()
     cfg = load_config(args.config)
     ds = load_processed(cfg)
+    if not cfg.paths.status.exists():
+        print(f"{cfg.paths.status} not found. It is your own record of which EAs are mapped and "
+              "is not kept in git: copy config/ea_status.example.csv to that path (or start from "
+              "its header row), or run scripts/sync_status.py to build it from your delivered maps.")
+        return 1
     status = read_status(cfg.paths.status)
 
     jobs, warnings = build_plan(ds, status, villages=args.village, ea_ids=args.ea,

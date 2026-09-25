@@ -11,6 +11,10 @@ data/processed/*
 outputs/*
 !outputs/.gitkeep
 
+# ---- EA status register: your own record of which EAs are mapped (kept local) --
+# Start from config/ea_status.example.csv.
+config/ea_status.csv
+
 # ---- python -----------------------------------------------------------------
 .venv/
 __pycache__/

@@ -1,7 +1,7 @@
 """The EA status register and the render plan.
 
-``config/ea_status.csv`` is the tracked record of which EAs already have
-maps. It is edited by hand once maps are checked and sent to the field:
+``config/ea_status.csv`` is the local (gitignored) record of which EAs already
+have maps; ``config/ea_status.example.csv`` is a template for it. It is edited by hand once maps are checked and sent to the field:
 
     ea_id,village,status,map_date,note
     70502220,Bikenibeu,mapped,2026-09-20,

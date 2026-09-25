@@ -5,7 +5,7 @@ paths:
   raw: data/raw                 # inputs you copy in by hand (gitignored)
   processed: data/processed     # written by 01_prepare and 02_plan (gitignored)
   outputs: outputs              # rendered PDFs and build logs (gitignored)
-  status: config/ea_status.csv  # which EAs are mapped / pending / blocked (tracked)
+  status: config/ea_status.csv  # which EAs are mapped / pending / blocked (local, not in git)
 
 # File names expected inside paths.raw. Update these when a new extract arrives.
 inputs:
