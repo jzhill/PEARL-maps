@@ -17,7 +17,7 @@ from collections import Counter
 
 from pearl_maps.config import load_config
 from pearl_maps.data import (flag_inside_own_ea, read_raw_eas, read_raw_households,
-                             read_raw_landmarks, write_landmarks, write_processed)
+                             read_raw_landmarks, snap_to_land, write_landmarks, write_processed)
 from pearl_maps.gpkg import GeoPackage
 from pearl_maps.qa import run_checks, write_report
 
@@ -63,6 +63,13 @@ def main() -> int:
     by_conf = Counter(r["confidence"] for r in landmarks)
     print(f"  {len(landmarks)} landmarks ({by_conf['high']} high, {by_conf['medium']} medium, "
           f"{by_conf['check']} check); printing those at or above '{cfg.landmarks['min_confidence']}'")
+    for r, moved in snap_to_land(landmarks, GeoPackage(cfg.paths.raw_input(cfg, "osm")),
+                                 float(cfg.landmarks["snap_to_land_m"])):
+        if moved is None:
+            print(f"  WARNING: {r['name']} is in the water and more than "
+                  f"{cfg.landmarks['snap_to_land_m']} m from land; check its coordinates in landmarks.csv")
+        else:
+            print(f"  moved {r['name']} {moved:.0f} m onto land (it was in the water)")
 
     flag_inside_own_ea(hh, eas)
     write_processed(cfg, eas, hh)

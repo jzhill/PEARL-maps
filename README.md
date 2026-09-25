@@ -162,7 +162,9 @@ They are implemented in `src/pearl_maps/ea_map.py` and tuned in `config.yaml`.
 **Village orientation sheets**
 
 - One A4 landscape sheet per village. Long atoll villages are cut into one to
-  three stacked west-to-east panels, whichever gives the largest scale.
+  three stacked west-to-east panels, whichever gives the largest scale. A sheet
+  is rotated only when that gives a larger scale, and never more than 90° from
+  north-up (the north arrow always points to true north).
 - EA numbers are printed inside each EA without the shared leading digits
   (the footer states the prefix), because full eight-digit numbers do not fit
   inside small EAs at village scale.
@@ -191,7 +193,10 @@ which opens directly in QGIS.
 
 `landmarks.min_confidence` in `config.yaml` sets which rows may print (default
 `medium`, so `check` rows stay off the maps), and `landmarks.priority` sets which
-categories win when a page has more landmarks than it can label. Names longer
+categories win when a page has more landmarks than it can label. A landmark whose
+point lies in the lagoon or ocean is moved onto the nearest land by stage 01 (a
+few metres in from the shore) if it is within `landmarks.snap_to_land_m`; stage 01
+reports each one, and `landmarks.csv` itself is left as you wrote it. Names longer
 than 42 characters (40 on village sheets) are skipped, so give long names a
 short `label`.
 

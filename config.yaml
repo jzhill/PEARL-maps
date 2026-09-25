@@ -35,6 +35,7 @@ households:
 # Which landmarks (from landmarks.csv) may be printed, and in what order.
 landmarks:
   min_confidence: medium        # check | medium | high - rows below this are never printed
+  snap_to_land_m: 200           # a landmark in the water this close to land is moved onto it; further away it is only reported
   priority:                     # lower prints first when a page has more than it can label
     school: 0
     health: 0

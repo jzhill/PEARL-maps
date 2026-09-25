@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from shapely.geometry import Point, mapping, shape
 from shapely.geometry.base import BaseGeometry
+from shapely.ops import nearest_points, unary_union
 
 from .config import Config
 from .gpkg import GeoPackage
@@ -188,6 +190,50 @@ def read_raw_landmarks(path: Path) -> list[dict]:
     if problems:
         raise ValueError("landmarks file has problems:\n  " + "\n  ".join(problems))
     return rows
+
+
+SNAP_INLAND_M = 6.0      # a landmark moved onto land is put this far in from the shoreline
+
+
+def _metres(a: Point, b: Point) -> float:
+    return math.hypot((a.x - b.x) * 111320 * math.cos(math.radians(a.y)), (a.y - b.y) * 110574)
+
+
+def snap_to_land(rows: list[dict], osm, max_snap_m: float) -> list[tuple[dict, float | None]]:
+    """Move landmarks that lie in the lagoon or ocean onto the nearest land.
+
+    Edits ``rows`` in place (lon/lat, and a note saying so). Returns
+    ``(row, metres_moved)`` for each landmark that was off land; ``None`` means it
+    is further than ``max_snap_m`` from any land and was left alone for a human to look at.
+    """
+    if not rows:
+        return []
+    lons, lats = [r["lon"] for r in rows], [r["lat"] for r in rows]
+    pad = 0.01
+    land = unary_union([g for g, _ in osm.query(
+        "land", (min(lons) - pad, min(lats) - pad, max(lons) + pad, max(lats) + pad))])
+    if land.is_empty:
+        return []
+    inland = land.buffer(-SNAP_INLAND_M / 111000.0)
+    out: list[tuple[dict, float | None]] = []
+    for r in rows:
+        p = Point(r["lon"], r["lat"])
+        if land.covers(p):
+            continue
+        q = nearest_points(land, p)[0]
+        d = _metres(p, q)
+        if d > max_snap_m:
+            out.append((r, None))
+            continue
+        if not inland.is_empty:
+            s = nearest_points(inland, p)[0]
+            if _metres(p, s) <= d + 3 * SNAP_INLAND_M:      # the shrunk land still holds this shore
+                q = s
+        r["lon"], r["lat"] = q.x, q.y
+        r["notes"] = "; ".join(x for x in (r.get("notes", ""),
+                                           f"moved {d:.0f} m onto land by stage 01 (source point was in the water)") if x)
+        out.append((r, d))
+    return out
 
 
 def flag_inside_own_ea(households: list[Household], eas: dict[str, EA]) -> None:

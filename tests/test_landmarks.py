@@ -1,10 +1,10 @@
 import csv
 
 import pytest
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 
 from pearl_maps.config import Config, Paths
-from pearl_maps.data import load_landmarks, read_raw_landmarks, write_landmarks
+from pearl_maps.data import load_landmarks, read_raw_landmarks, snap_to_land, write_landmarks
 from pearl_maps.landmarks import Landmark, collect_landmarks
 
 FIELDS = ["landmark_id", "name", "label", "category", "lon", "lat", "confidence"]
@@ -84,6 +84,39 @@ def test_load_min_confidence_check_keeps_everything(tmp_path):
     write_csv(tmp_path / "landmarks.csv", [row(1, "Doubtful Church", "church", "check")])
     write_landmarks(cfg, read_raw_landmarks(tmp_path / "landmarks.csv"))
     assert [lm.name for lm in load_landmarks(cfg)] == ["Doubtful Church"]
+
+
+class FakeOsm:
+    """Stands in for the OSM GeoPackage: one square of land, about 1.1 km across."""
+    def query(self, table, bbox):
+        assert table == "land"
+        return [(Polygon([(173.00, 1.30), (173.01, 1.30), (173.01, 1.31), (173.00, 1.31)]), {})]
+
+
+def snap_row(name, lon, lat):
+    return dict(name=name, lon=lon, lat=lat, notes="")
+
+
+def test_snap_leaves_landmarks_on_land_alone():
+    r = snap_row("On Land", 173.005, 1.305)
+    assert snap_to_land([r], FakeOsm(), 200) == []
+    assert (r["lon"], r["lat"]) == (173.005, 1.305)
+
+
+def test_snap_moves_a_landmark_in_the_water_onto_land_and_says_so():
+    r = snap_row("In Lagoon", 172.9995, 1.305)          # ~55 m west of the shore
+    (row, moved), = snap_to_land([r], FakeOsm(), 200)
+    assert row is r and 40 < moved < 70
+    assert Polygon([(173.00, 1.30), (173.01, 1.30), (173.01, 1.31), (173.00, 1.31)]).contains(
+        Point(r["lon"], r["lat"]))
+    assert 173.00 < r["lon"] < 173.0002                 # a few metres in, not on the shoreline itself
+    assert "onto land" in r["notes"]
+
+
+def test_snap_reports_but_does_not_move_a_landmark_far_from_land():
+    r = snap_row("Far Out", 172.97, 1.305)              # ~3 km west
+    (row, moved), = snap_to_land([r], FakeOsm(), 200)
+    assert moved is None and (r["lon"], r["lat"]) == (172.97, 1.305)
 
 
 def test_collect_filters_bbox_and_long_names():
