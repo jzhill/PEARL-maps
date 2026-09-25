@@ -107,6 +107,16 @@ def long_axis_deg(g_proj: BaseGeometry) -> float:
     return math.degrees(math.atan2(edges[0][1], edges[0][0]))
 
 
+def nearest_north_up(deg: float) -> float:
+    """The rotation equivalent to ``deg`` for a long thin target, closest to north-up.
+
+    A strip fits a page identically at ``deg`` and ``deg`` + 180, so a sheet never
+    needs more than 90 degrees of rotation. Result is in (-90, 90].
+    """
+    d = (deg + 180.0) % 180.0
+    return d - 180.0 if d > 90.0 else d
+
+
 def trim_to_land(poly_ll: BaseGeometry, osm) -> BaseGeometry:
     """Drop lagoon / ocean parts of an EA before sizing the map, so a boundary
     drawn out over the reef does not shrink the print scale."""

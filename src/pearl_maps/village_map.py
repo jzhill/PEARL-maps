@@ -22,7 +22,7 @@ from .config import Config
 from .data import Datasets
 from .draw import (dashed_outline, draw_basemap, north_arrow, scale_bar, setup_axes,
                    text_along)
-from .geometry import PageTransform, Proj, long_axis_deg, trim_to_land
+from .geometry import PageTransform, Proj, long_axis_deg, nearest_north_up, trim_to_land
 from .labels import (Grid, Label, font_family, place_first_fit, text_height_mm,
                      text_width_mm, use_font)
 from .landmarks import collect_landmarks
@@ -122,7 +122,7 @@ class VillageMapRenderer:
         c = target.centroid
         base = Proj(c.x, c.y)
         best = None
-        for deg in (0.0, -long_axis_deg(base.geom(target))):
+        for deg in (0.0, nearest_north_up(-long_axis_deg(base.geom(target)))):
             pr = base.rotated(deg)
             minx, miny, maxx, maxy = pr.geom(target).bounds
             W, H = maxx - minx + 2 * PAD_M, maxy - miny + 2 * PAD_M

@@ -1,6 +1,19 @@
 from shapely.geometry import Point, box
 
-from pearl_maps.geometry import PageTransform, Proj, split_bands
+import pytest
+
+from pearl_maps.geometry import PageTransform, Proj, nearest_north_up, split_bands
+
+
+@pytest.mark.parametrize("deg, expected", [
+    (0.0, 0.0), (36.6, 36.6), (-38.7, -38.7),          # already within 90 degrees: unchanged
+    (159.4, -20.6), (-170.8, 9.2), (177.3, -2.7),      # the upside-down Teaoraereke / Bairiki / Taborio angles
+    (90.0, 90.0), (-90.0, 90.0), (180.0, 0.0), (-180.0, 0.0), (270.0, 90.0),
+])
+def test_nearest_north_up_never_exceeds_90_degrees(deg, expected):
+    got = nearest_north_up(deg)
+    assert got == pytest.approx(expected)
+    assert -90.0 < got <= 90.0
 
 
 def test_projection_round_trip():
